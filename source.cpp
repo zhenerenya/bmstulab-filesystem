@@ -3,17 +3,18 @@
 void iterate(const fs::path& path_to_ftp) {
 	std::cout << "\n" << path_to_ftp;
 	if (fs::exists(path_to_ftp)) {
-		std::map<std::string, aboutAccounts>accs;
+		std::map<std::pair<std::string, std::string>, aboutAccounts>accs;
 		for (const fs::directory_entry& x :
 			fs::recursive_directory_iterator{ path_to_ftp }) {
 			analyse(x.path(), accs);
 		}
 		printbroks(accs);
+		fprintbroks(accs);
 	}
 }
 
 
-bool is_formatfile(const fs::path& p, std::map<std::string, aboutAccounts>&accs) {
+bool is_formatfile(const fs::path& p, std::map<std::pair<std::string, std::string>, aboutAccounts>&accs) {
 	std::string s = p.filename().string();
 	if (s.length() == myfiletype.len) {
 		size_t it0 = 0;
@@ -46,12 +47,15 @@ bool comparelastdate(const std::string& old_date, const std::string& new_date) {
 }
 
 
-void analyse(const fs::path& p, std::map<std::string, aboutAccounts>&accs) {
+void analyse(const fs::path& p, std::map<std::pair<std::string, std::string>, aboutAccounts>&accs) {
 	try {
 		if (fs::exists(p)) {
 			if (fs::is_regular_file(p)) {
 				if (is_formatfile(p, accs))
-				printfiles(p);
+				{
+					printfiles(p);
+					fprintfiles(p);
+				}
 			}
 		}
 		else {
@@ -67,11 +71,10 @@ void analyse(const fs::path& p, std::map<std::string, aboutAccounts>&accs) {
 }
 
 void printfiles(const fs::path& p) {
-	std::string fname = p.filename().string();
-			std::cout << p.parent_path().filename().string() << " " << p.filename().string() << "\n";
+	std::cout << p.parent_path().filename().string() << " " << p.filename().string() << "\n";
 }
 
-void set_acc(const fs::path& p, std::map<std::string, aboutAccounts>& accs) {
+void set_acc(const fs::path& p, std::map<std::pair<std::string, std::string>, aboutAccounts>& accs) {
 	std::string s = p.filename().string();
 	std::string broker = p.parent_path().filename().string();
 	size_t it0 = myfiletype.balance.length();
@@ -80,13 +83,13 @@ void set_acc(const fs::path& p, std::map<std::string, aboutAccounts>& accs) {
 	it0 += 1 + it1;
 	it1 = myfiletype.ldate.length();
 	std::string date = s.substr(it0, it1);
-
-	if (accs.find(acc) == accs.end()) {
-		accs[acc] = { broker, date };
+	std::pair<std::string, std::string>newpair = { broker, acc };
+	if (accs.find(newpair) == accs.end()) {
+		accs[newpair] = { date };
 	}
 	else {
-		if(comparelastdate(accs[acc].get_lastdate(), date))
-			accs[acc].set_lastdate(date);
+		if(comparelastdate(accs[newpair].get_lastdate(), date))
+			accs[newpair].set_lastdate(date);
 	}
 }
 
@@ -97,10 +100,26 @@ bool is_number(const std::string& s)
 	return !s.empty() && it == s.end();
 }
 
-void printbroks(std::map<std::string, aboutAccounts>& accs) {
+void printbroks(std::map<std::pair<std::string, std::string>, aboutAccounts>& accs) {
 	for (const auto& i : accs) {
-		std::cout <<"account: "<<i.first << " broker: " << i.second.get_broker() <<
-			" files: "<<i.second.get_countoffiles()<<" last date: "<<
+		std::cout <<"broker:"<<i.first.first << " account:" << i.first.second <<
+			" files:"<<i.second.get_countoffiles()<<" last date:"<<
 			i.second.get_lastdate()<<"\n";
 	}
+}
+
+std::ofstream& fprintbroks(std::map<std::pair<std::string, std::string>, aboutAccounts>& accs) {
+	std::ofstream ofs("results.txt", std::ios::app);
+	for (const auto& i : accs) {
+		ofs << "broker:" << i.first.first << " account:" << i.first.second <<
+			" files:" << i.second.get_countoffiles() << " last date:" <<
+			i.second.get_lastdate() << "\n";
+	}
+	return ofs;
+}
+
+std::ofstream& fprintfiles(const fs::path& p) {
+	std::ofstream ofs("results.txt", std::ios::app);
+	ofs << p.parent_path().filename().string() << " " << p.filename().string() << "\n";
+	return ofs;
 }
